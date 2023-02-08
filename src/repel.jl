@@ -15,8 +15,8 @@ end
 Tests whether the point lies within the rectangle specified by `origin` and `widths`; returns a boolean.
 Edges are considered to be within the rectangle.
 """
-function intersects(origin::VecTypes{N}, widths::VecTypes{N}, point::VecTypes{N}) where N
-    return all((&).(point .≥ origin, point .≤ origin .+ widths))
+function intersects(origin::VecTypes{N}, widths::VecTypes{N}, point::VecTypes{N}, radius = 0) where N
+    return all((&).(point .≥ origin .- radius, point .≤ origin .+ widths .+ radius))
 end
 
 """
@@ -90,7 +90,7 @@ end
 #   into a mutable structarray to cut down on allocations
 # - change to how ggrepel does it - only intersecting elements repel.  
 #   this should cut allocs down by a lot.
-function repel_from_points(points::AbstractVector{<: Makie.VecTypes{2}}, boxes::AbstractVector{<: Rect2}, niters = 10000; padding = 4, x = true, y = true, halign = 0.5, valign = 0.5)
+function repel_from_points(points::AbstractVector{<: Makie.VecTypes{2}}, boxes::AbstractVector{<: Rect2}, niters = 10000; padding = 4, x = true, y = true, halign = 0.5, valign = 0.5, data_radius = 5, selfpoint_radius = 3)
     @assert length(points) == length(boxes)
     @timeit to "accumulating origin and width" begin
     origin_vec = #=StructArray(=#origin.(boxes) .- (Vec2f(padding),)#)
@@ -120,7 +120,7 @@ function repel_from_points(points::AbstractVector{<: Makie.VecTypes{2}}, boxes::
                             (current_origin .+ jitter,), (width_vec[j] .+ jitter,),
                             points;
                             k = 4e-3, x, y, halign, valign
-                        ) .* intersects.((current_origin,), (width_vec[j],), points)
+                        ) .* intersects.((current_origin,), (width_vec[j],), points, data_radius)
                     )
             end
 
@@ -130,7 +130,7 @@ function repel_from_points(points::AbstractVector{<: Makie.VecTypes{2}}, boxes::
         # attract origin to the base point
         # distances_to_basepoints = dist.(origin_vec, points)
         @timeit to "Attraction to origin points" begin
-            origin_vec .-= spring_repel.(origin_vec, width_vec, points; k = 2e-3, x, y, halign, valign) .* ifelse.(intersects.(origin_vec, width_vec, points), -5, 1)#ifelse.(distances_to_basepoints .< 50, 1, distances_to_basepoints)
+            origin_vec .-= spring_repel.(origin_vec, width_vec, points; k = 2.5e-3, x, y, halign, valign) .* ifelse.(intersects.(origin_vec, width_vec, points, selfpoint_radius), -10, 1)#ifelse.(distances_to_basepoints .< 50, 1, distances_to_basepoints)
         end
 
     end
