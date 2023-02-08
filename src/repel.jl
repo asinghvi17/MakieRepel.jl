@@ -25,12 +25,12 @@ end
 Tests whether the two rectangles `a` and `b` intersect, returns boolean.
 Edges are considered to be within the rectangle.
 """
-function intersects(a_origin::VecTypes{2}, a_widths::VecTypes{2}, b_origin::VecTypes{2}, b_widths::VecTypes{2})
+Base.@propagate_inbounds function intersects(a_origin::VecTypes{2}, a_widths::VecTypes{2}, b_origin::VecTypes{2}, b_widths::VecTypes{2})
     aleft, abottom = a_origin
-    aright, atop = a_origin .+ a_widths
+    aright, atop = a_origin[1] + a_widths[1], a_origin[2] + a_widths[2]
 
     bleft, bbottom = b_origin
-    bright, btop = b_origin .+ b_widths
+    bright, btop = b_origin[1] + b_widths[1], b_origin[2] + b_widths[2]
 
     return aleft ≤ bright && aright ≥ bleft && atop ≥ bbottom && abottom ≤ btop
 
@@ -43,7 +43,7 @@ Returns the repulsive force exerted on a by b, using Hooke's law: `F = k⋅(a⃗
 
 `x` and `y` represent whether to move in the x or y directions.
 """
-spring_repel(a::Makie.VecTypes{2}, b::Makie.VecTypes{2}; k = 0.01, x = true, y = true) = Vec2f((a - b) .* Vec2f(x, y) .* k)
+Base.@propagate_inbounds spring_repel(a::Makie.VecTypes{2}, b::Makie.VecTypes{2}; k = 0.01, x = true, y = true) = Vec2f((a - b) .* (x, y) .* k)
 
 """
     spring_repel(
@@ -59,13 +59,13 @@ If the rectangles intersect, their repulsion is multiplied by 5.  If they do not
 
 `halign` and `valign` control the alignment of the centroid within the rectangle.
 """
-function spring_repel(a_origin::VecTypes{2}, a_widths::VecTypes{2}, b_origin::VecTypes{2}, b_widths::VecTypes{2}; k = 10000, x = true, y = true, halign = 0.5, valign = 0.5) # returns Vec2f of displacement caused by B to A.
+Base.@propagate_inbounds function spring_repel(a_origin::VecTypes{2}, a_widths::VecTypes{2}, b_origin::VecTypes{2}, b_widths::VecTypes{2}; k = 10000, x = true, y = true, halign = 0.5, valign = 0.5) # returns Vec2f of displacement caused by B to A.
 
-    do_boxes_intersect = intersects(a_origin, a_widths, b_origin, b_widths)
+    # do_boxes_intersect = intersects(a_origin, a_widths, b_origin, b_widths)
     a_center = a_origin .+ a_widths .* (halign, valign)
     b_center = b_origin .+ b_widths .* (halign, valign)
 
-    return spring_repel(a_center, b_center; k, x, y) .* (do_boxes_intersect ? 5.0 : 0.01)
+    return spring_repel(a_center, b_center; k, x, y) #.* (do_boxes_intersect ? 5.0 : 0.01)
 end
 
 """
@@ -75,7 +75,7 @@ Returns the spring-force repulsion between the centroid of the given rectangle a
 
 `halign` and `valign` control the alignment of the centroid within the rectangle.
 """
-function spring_repel(a_origin::VecTypes{2}, a_widths::VecTypes{2}, point::VecTypes{2}; k = 10000, x = true, y = true, halign = 0.5, valign = 0.5) # returns Vec2f of displacement caused by B to A.
+Base.@propagate_inbounds function spring_repel(a_origin::VecTypes{2}, a_widths::VecTypes{2}, point::VecTypes{2}; k = 10000, x = true, y = true, halign = 0.5, valign = 0.5) # returns Vec2f of displacement caused by B to A.
 
     a_center = a_origin .+ a_widths .* (halign, valign)
 
@@ -103,39 +103,38 @@ function repel_from_points(points::AbstractVector{<: Makie.VecTypes{2}}, boxes::
         # loop through all boxes to apply this
         for j in 1:length(boxes)
             jitter = rand(Point2f) .* 0.00000001f0
-
             current_origin = origin_vec[j]
+
             @timeit to "Repulsion between boxes" begin
-            origin_vec[j] += sum(
-                spring_repel.(
-                    (current_origin .+ jitter,), (width_vec[j] .+ jitter,),
-                    origin_vec, width_vec;
-                    k = 1e-3, x, y, halign, valign
-                )
-            )
+                origin_vec[j] += sum(
+                        spring_repel.(
+                            (current_origin .+ jitter,), (width_vec[j] .+ jitter,),
+                            origin_vec, width_vec;
+                            k = 1e-3, x, y, halign, valign
+                        ) .* intersects.((current_origin,), (width_vec[j],), origin_vec, width_vec)
+                    )
+            end
+            @timeit to "Repulsion between boxes and points" begin
+                origin_vec[j] += sum(
+                        spring_repel.(
+                            (current_origin .+ jitter,), (width_vec[j] .+ jitter,),
+                            points;
+                            k = 1e-3, x, y, halign, valign
+                        ) .* intersects.((current_origin,), (width_vec[j],), points)
+                    )
             end
 
-            @timeit to "Repulsion between boxes and data points" begin
-            distances_to_boxes = dist.((origin_vec[j],), origin_vec)
-
-            origin_vec[j] += sum(
-                spring_repel.(
-                    (current_origin .+ jitter,), (width_vec[j] .+ jitter,),
-                    points;
-                    k = 1e-3, x, y, halign, valign
-                ) .* (intersects.((current_origin,), (width_vec[j],), points) .+ 0.0000001) #.* (distances_to_boxes ./ 100 .+ 1)
-            )
-            end
+            # distances_to_boxes = dist.((origin_vec[j],), origin_vec)
             
         end
         # attract origin to the base point
         # distances_to_basepoints = dist.(origin_vec, points)
         @timeit to "Attraction to origin points" begin
-            origin_vec .-= spring_repel.(origin_vec, width_vec, points; k = 4e-3, x, y, halign, valign) .* (!).(intersects.(origin_vec, width_vec, points))#ifelse.(distances_to_basepoints .< 50, 1, distances_to_basepoints)
+            origin_vec .-= spring_repel.(origin_vec, width_vec, points; k = 2e-3, x, y, halign, valign) .* ifelse.(intersects.(origin_vec, width_vec, points), -1, 1)#ifelse.(distances_to_basepoints .< 50, 1, distances_to_basepoints)
         end
 
     end
     end
 
-    return origin_vec
+    return origin_vec .+ Vec2f(padding, padding)
 end
