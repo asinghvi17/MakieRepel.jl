@@ -64,14 +64,13 @@ end
 
 @testset "mtcars" begin
 
-    # TODO: kludge, why is the axis responding to my text when I told it not to?
     fig = Figure()
     mtcars = RDatasets.dataset("datasets", "mtcars")
     mtpoints = Point2f.(mtcars.WT, mtcars.MPG)
     pixel_mtpoints = Point2f.(Makie.project.((Makie.camera(ax.scene),), :data, :pixel, mtpoints))# .- (origin(ax.scene.px_area[]),)
 
     ax, sc = scatter(fig[1, 1], mtpoints)
-
+    # NB: always set `xautolimits = false, yautolimits = false` in plots.
     tp = text!(ax, mtcars.Model; position = mtpoints, xautolimits = false, yautolimits = false)
     fig
 
@@ -80,12 +79,11 @@ end
 
     repellable_boxes = Rect2f.(origin.(boxes) .+ pixel_mtpoints, widths.(boxes))
 
-    new_boxes = repel_from_points(pixel_mtpoints, repellable_boxes, 10000; padding = 5)
+    new_boxes = repel_from_points(pixel_mtpoints, repellable_boxes, ax.scene.px_area[], 10000; padding = 5)
 
-    # scatter!(ax, pixel_mtpoints; space=:pixel, color = :red)
-    tp.position[] = #=new_boxes .+ (origin(pixelarea(ax.scene)[]),) =# Makie.project.((Makie.camera(ax.scene),), :pixel, :data, new_boxes)
+    tp.position[] = Point2f.(Makie.project.((Makie.camera(ax.scene),), :pixel, :data, new_boxes))
 
-    linesegments!(ax.blockscene, collect(Iterators.flatten(zip(pixel_mtpoints, new_boxes))) .+ (origin(pixelarea(ax.scene)[]),))
+    linesegments!(ax, collect(Iterators.flatten(zip(mtpoints, tp.position[]))), inspectable = false, xautolimits = false, yautolimits = false)
 
     fig
 
