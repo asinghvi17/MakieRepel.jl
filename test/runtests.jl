@@ -72,7 +72,7 @@ end
 
     ax, sc = scatter(fig[1, 1], mtpoints)
 
-    tp = text!(ax.blockscene, mtcars.Model; position = pixel_mtpoints .+ (origin(pixelarea(ax.scene)[]),))
+    tp = text!(ax, mtcars.Model; position = mtpoints, xautolimits = false, yautolimits = false)
     fig
 
 
@@ -80,12 +80,10 @@ end
 
     repellable_boxes = Rect2f.(origin.(boxes) .+ pixel_mtpoints, widths.(boxes))
 
-    new_boxes = repel_from_points(pixel_mtpoints, repellable_boxes, 5000; padding = 5)
+    new_boxes = repel_from_points(pixel_mtpoints, repellable_boxes, 10000; padding = 5)
 
     # scatter!(ax, pixel_mtpoints; space=:pixel, color = :red)
-    tp.xautolimits[] = false
-    tp.yautolimits[] = false
-    tp.position[] = new_boxes .+ (origin(pixelarea(ax.scene)[]),) # Makie.project.((Makie.camera(ax.scene),), :pixel, :data, new_boxes)
+    tp.position[] = #=new_boxes .+ (origin(pixelarea(ax.scene)[]),) =# Makie.project.((Makie.camera(ax.scene),), :pixel, :data, new_boxes)
 
     linesegments!(ax.blockscene, collect(Iterators.flatten(zip(pixel_mtpoints, new_boxes))) .+ (origin(pixelarea(ax.scene)[]),))
 
