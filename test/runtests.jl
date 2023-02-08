@@ -87,7 +87,11 @@ end
     tp.yautolimits[] = false
     tp.position[] = new_boxes .+ (origin(pixelarea(ax.scene)[]),) # Makie.project.((Makie.camera(ax.scene),), :pixel, :data, new_boxes)
 
+    linesegments!(ax.blockscene, collect(Iterators.flatten(zip(pixel_mtpoints, new_boxes))) .+ (origin(pixelarea(ax.scene)[]),))
+
     fig
+
+    # record(fig, 1:10:1000)
 
     # pr = poly!(ax.scene, repellable_boxes; space = :pixel, color = (:black, 0.1))
 
