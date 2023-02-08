@@ -4,7 +4,7 @@ CurrentModule = MakieRepel
 
 # MakieRepel
 
-Documentation for [MakieRepel](https://github.com/asinghvi17/MakieRepel.jl).
+MakieRepel is a re-implementation of [ggrepel](https://github.com/slowkow/ggrepel) in Julia, for Makie!  Basically, it 
 
 ```@index
 ```
