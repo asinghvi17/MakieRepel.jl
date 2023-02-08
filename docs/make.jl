@@ -16,6 +16,7 @@ makedocs(;
     ),
     pages=[
         "Home" => "index.md",
+        "Finding good parameters" => "manipulation.md"
     ],
 )
 

@@ -90,7 +90,7 @@ end
 #   into a mutable structarray to cut down on allocations
 # - change to how ggrepel does it - only intersecting elements repel.  
 #   this should cut allocs down by a lot.
-function repel_from_points(points::AbstractVector{<: Makie.VecTypes{2}}, boxes::AbstractVector{<: Rect2}, axisbbox::Rect2, niters = 10000; padding = 4, x = true, y = true, halign = 0.5, valign = 0.5, data_radius = 5, selfpoint_radius = 3)
+function repel_from_points(points::AbstractVector{<: Makie.VecTypes{2}}, boxes::AbstractVector{<: Rect2}, axisbbox::Rect2, niters = 10000; padding = 4, x = true, y = true, halign = 0.5, valign = 0.5, data_radius = 5, selfpoint_radius = 3, attraction = 1.75e-3, box_repulsion = 3e-3, point_repulsion = 3e-3)
     @assert length(points) == length(boxes)
     @timeit to "accumulating origin and width" begin
     origin_vec = #=StructArray(=#origin.(boxes) .- (Vec2f(padding),)#)
@@ -100,38 +100,51 @@ function repel_from_points(points::AbstractVector{<: Makie.VecTypes{2}}, boxes::
     @timeit to "Main loop" begin
     # loop through all iterations
     @inbounds for i in 1:niters
+
+        # attract origin to the base point
+        # distances_to_basepoints = dist.(origin_vec, points)
+        @timeit to "Attraction to origin points" begin
+            origin_vec .-= spring_repel.(origin_vec, width_vec, points; k = attraction, x, y, halign, valign) .* ifelse.(intersects.(origin_vec, width_vec, points, selfpoint_radius), -100, 1)#ifelse.(distances_to_basepoints .< 50, 1, distances_to_basepoints)
+        end
+
         # loop through all boxes to apply this
+
         for j in 1:length(boxes)
-            jitter = rand(Point2f) .* 0.00000001f0
+            jitter = rand(Point2f) .* 0.00001f0
+
+            # push each box away from the wall
+
             current_origin = origin_vec[j]
+            current_width = width_vec[j]
 
             @timeit to "Repulsion between boxes" begin
                 origin_vec[j] += sum(
                         spring_repel.(
                             (current_origin .+ jitter,), (width_vec[j] .+ jitter,),
                             origin_vec, width_vec;
-                            k = 5e-3, x, y, halign, valign
-                        ) .* intersects.((current_origin,), (width_vec[j],), origin_vec, width_vec)
+                            k = box_repulsion, x, y, halign, valign
+                        ) .* (intersects.((current_origin,), (width_vec[j],), origin_vec, width_vec))
                     )
             end
+
             @timeit to "Repulsion between boxes and points" begin
                 origin_vec[j] += sum(
                         spring_repel.(
                             (current_origin .+ jitter,), (width_vec[j] .+ jitter,),
                             points;
-                            k = 4e-3, x, y, halign, valign
+                            k = point_repulsion, x, y, halign, valign
                         ) .* intersects.((current_origin,), (width_vec[j],), points, data_radius)
                     )
             end
 
-            # distances_to_boxes = dist.((origin_vec[j],), origin_vec)
-            
-        end
-        # attract origin to the base point
-        # distances_to_basepoints = dist.(origin_vec, points)
-        @timeit to "Attraction to origin points" begin
-            origin_vec .-= spring_repel.(origin_vec, width_vec, points; k = 2.5e-3, x, y, halign, valign) .* ifelse.(intersects.(origin_vec, width_vec, points, selfpoint_radius), -10, 1)#ifelse.(distances_to_basepoints .< 50, 1, distances_to_basepoints)
-        end
+            @timeit to "Repulsion of boxes from walls" begin
+                left_bottom_less = max.(axisbbox.origin .- origin_vec[j], 0f0)
+                right_top_more = min.((axisbbox.origin .+ axisbbox.widths) .- (origin_vec[j] .+ current_width), 0f0)
+                origin_vec[j] += left_bottom_less .+ right_top_more .+ rand(Point2f) .* 1f-2
+            end
+
+
+        end        
 
     end
     end

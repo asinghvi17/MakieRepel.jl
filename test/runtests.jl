@@ -16,20 +16,20 @@ using BenchmarkTools, TimerOutputs
     boxes = Rect2f.(randn(Point2f, 40), Point2f.(rand(40) .* 5, rand(40))./ 4)
 
     TimerOutputs.reset_timer!(to)
-    display(@benchmark repel_from_points($(origin.(boxes)), boxes, 2000))
+    display(@benchmark repel_from_points($(origin.(boxes)), boxes, Rect2f(-100, -100, 200, 200), 2000))
     display(to)
 
 
     f, a1, p1 = poly(boxes; color = 1:length(boxes), colormap = cgrad(:rainbow1; alpha = 0.4))
     @test_nowarn begin
-        newpoints = repel_from_points(origin.(boxes), boxes, 3000; padding = 0.05)
+        newpoints = repel_from_points(origin.(boxes), boxes, Rect2f(-100, -100, 200, 200), 9000; padding = 0.05)
     end
     a2, p2 = poly(f[1, 2], Rect2f.(newpoints, widths.(boxes)); color = 1:length(boxes), colormap = cgrad(:rainbow1; alpha = 0.4))
     ls = linesegments!(a2, collect(Iterators.flatten(zip(origin.(boxes), newpoints))))
     scatter!(a1, origin.(boxes); markersize = 5, color = :black)
     scatter!(a2, origin.(boxes); markersize = 5, color = :black)
     linkaxes!(a1, a2)
-    title = Label(f[0, 1:2], text = "3,000 iterations")
+    title = Label(f[0, 1:2], text = "9,000 iterations")
     save("basic_test.png", f; px_per_unit = 3)
 end
 
@@ -71,7 +71,7 @@ end
 
     ax, sc = scatter(fig[1, 1], mtpoints)
     # NB: always set `xautolimits = false, yautolimits = false` in plots.
-    tp = text!(ax, mtcars.Model; position = mtpoints, xautolimits = false, yautolimits = false)
+    tp = text!(ax, mtcars.Model; position = mtpoints, align = (:center, :center), xautolimits = false, yautolimits = false)
     fig
 
 
@@ -83,7 +83,7 @@ end
 
     tp.position[] = Point2f.(Makie.project.((Makie.camera(ax.scene),), :pixel, :data, new_boxes))
 
-    linesegments!(ax, collect(Iterators.flatten(zip(mtpoints, tp.position[]))), inspectable = false, xautolimits = false, yautolimits = false)
+    linesegments!(ax, @lift(collect(Iterators.flatten(zip(mtpoints, $(tp.position))))), inspectable = false, xautolimits = false, yautolimits = false)
 
     fig
 
