@@ -64,26 +64,28 @@ end
 
 @testset "mtcars" begin
 
+    # TODO: kludge, why is the axis responding to my text when I told it not to?
     fig = Figure()
     mtcars = RDatasets.dataset("datasets", "mtcars")
     mtpoints = Point2f.(mtcars.WT, mtcars.MPG)
+    pixel_mtpoints = Point2f.(Makie.project.((Makie.camera(ax.scene),), :data, :pixel, mtpoints))# .- (origin(ax.scene.px_area[]),)
+
     ax, sc = scatter(fig[1, 1], mtpoints)
 
-    tp = text!(ax, mtcars.Model; position = mtpoints)
+    tp = text!(ax.blockscene, mtcars.Model; position = pixel_mtpoints .+ (origin(pixelarea(ax.scene)[]),))
     fig
 
-    pixel_mtpoints = Point2f.(Makie.project.((Makie.camera(ax.scene),), :data, :pixel, mtpoints))# .- (origin(ax.scene.px_area[]),)
 
     boxes = Makie.boundingbox.(tp.plots[1].plots[1][1][], Makie.to_ndim.(Point3f, tp.plots[1].plots[1].position[], 0), fill(Quaternionf(0,0,0,0), length(tp.plots[1].plots[1][1][]))) .|> Rect2f
 
     repellable_boxes = Rect2f.(origin.(boxes) .+ pixel_mtpoints, widths.(boxes))
 
-    new_boxes = repel_from_points(pixel_mtpoints, repellable_boxes, 5000; padding = 4)
+    new_boxes = repel_from_points(pixel_mtpoints, repellable_boxes, 5000; padding = 5)
 
     # scatter!(ax, pixel_mtpoints; space=:pixel, color = :red)
-
-    tp.position[] = new_boxes
-    tp.space = :pixel
+    tp.xautolimits[] = false
+    tp.yautolimits[] = false
+    tp.position[] = new_boxes .+ (origin(pixelarea(ax.scene)[]),) # Makie.project.((Makie.camera(ax.scene),), :pixel, :data, new_boxes)
 
     fig
 

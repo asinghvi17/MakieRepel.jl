@@ -110,7 +110,7 @@ function repel_from_points(points::AbstractVector{<: Makie.VecTypes{2}}, boxes::
                         spring_repel.(
                             (current_origin .+ jitter,), (width_vec[j] .+ jitter,),
                             origin_vec, width_vec;
-                            k = 1e-3, x, y, halign, valign
+                            k = 5e-3, x, y, halign, valign
                         ) .* intersects.((current_origin,), (width_vec[j],), origin_vec, width_vec)
                     )
             end
@@ -130,7 +130,7 @@ function repel_from_points(points::AbstractVector{<: Makie.VecTypes{2}}, boxes::
         # attract origin to the base point
         # distances_to_basepoints = dist.(origin_vec, points)
         @timeit to "Attraction to origin points" begin
-            origin_vec .-= spring_repel.(origin_vec, width_vec, points; k = 2e-3, x, y, halign, valign) .* ifelse.(intersects.(origin_vec, width_vec, points), -1, 1)#ifelse.(distances_to_basepoints .< 50, 1, distances_to_basepoints)
+            origin_vec .-= spring_repel.(origin_vec, width_vec, points; k = 2e-3, x, y, halign, valign) .* ifelse.(intersects.(origin_vec, width_vec, points), -5, 1)#ifelse.(distances_to_basepoints .< 50, 1, distances_to_basepoints)
         end
 
     end
