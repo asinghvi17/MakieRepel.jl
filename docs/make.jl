@@ -16,11 +16,13 @@ makedocs(;
     ),
     pages=[
         "Home" => "index.md",
-        "Finding good parameters" => "manipulation.md"
+        "Finding good parameters" => "manipulation.md",
+        "API" => "api.md"
     ],
 )
 
 deploydocs(;
     repo="github.com/asinghvi17/MakieRepel.jl",
     devbranch="main",
+    push_preview = true,
 )
