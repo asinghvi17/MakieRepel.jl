@@ -119,7 +119,7 @@ function repel_from_points(points::AbstractVector{<: Makie.VecTypes{2}}, boxes::
                         spring_repel.(
                             (current_origin .+ jitter,), (width_vec[j] .+ jitter,),
                             points;
-                            k = 1e-3, x, y, halign, valign
+                            k = 4e-3, x, y, halign, valign
                         ) .* intersects.((current_origin,), (width_vec[j],), points)
                     )
             end
