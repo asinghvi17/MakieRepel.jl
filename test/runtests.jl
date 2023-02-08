@@ -1,8 +1,12 @@
 using MakieRepel
+using MakieRepel: to
 using Makie, CairoMakie, RDatasets
 using Makie.GeometryBasics
 using GeometryBasics: origin, widths
 using Test
+
+using BenchmarkTools, TimerOutputs
+
 
 @testset "MakieRepel.jl" begin
     # Write your tests here.
@@ -10,8 +14,6 @@ end
 
 
 boxes = Rect2f.(randn(Point2f, 40), Point2f.(rand(40) .* 5, rand(40))./ 4)
-
-using BenchmarkTools
 
 TimerOutputs.reset_timer!(to)
 @benchmark repel_from_points($(origin.(boxes)), boxes, 2000)
