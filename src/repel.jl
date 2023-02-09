@@ -86,10 +86,8 @@ end
 
 
 # TODOS:
-# - still allocates a lot, find a way to make the origin vector at least
-#   into a mutable structarray to cut down on allocations
-# - change to how ggrepel does it - only intersecting elements repel.  
-#   this should cut allocs down by a lot.
+# - still allocates a lot, find a way to make the origin vector into a mutable structarray to cut down on allocations
+# - change to how ggrepel does it - only intersecting elements repel.  this should cut allocs down by a lot.
 function repel_from_points(points::AbstractVector{<: Makie.VecTypes{2}}, boxes::AbstractVector{<: Rect2}, axisbbox::Rect2, niters = 10000; padding = 4, x = true, y = true, halign = 0.5, valign = 0.5, data_radius = 5, selfpoint_radius = 3, attraction = 1.75e-3, box_repulsion = 3e-3, point_repulsion = 3e-3)
     @assert length(points) == length(boxes)
     @timeit to "accumulating origin and width" begin
@@ -104,7 +102,7 @@ function repel_from_points(points::AbstractVector{<: Makie.VecTypes{2}}, boxes::
         # attract origin to the base point
         # distances_to_basepoints = dist.(origin_vec, points)
         @timeit to "Attraction to origin points" begin
-            origin_vec .-= spring_repel.(origin_vec, width_vec, points; k = attraction, x, y, halign, valign) .* ifelse.(intersects.(origin_vec, width_vec, points, selfpoint_radius), -100, 1)#ifelse.(distances_to_basepoints .< 50, 1, distances_to_basepoints)
+            origin_vec .-= spring_repel.(origin_vec, width_vec, points; k = attraction, x, y, halign, valign) .* ifelse.(intersects.(origin_vec, width_vec, points, selfpoint_radius), -1f5, 1f0)#ifelse.(distances_to_basepoints .< 50, 1, distances_to_basepoints)
         end
 
         # loop through all boxes to apply this
@@ -123,7 +121,7 @@ function repel_from_points(points::AbstractVector{<: Makie.VecTypes{2}}, boxes::
                             (current_origin .+ jitter,), (width_vec[j] .+ jitter,),
                             origin_vec, width_vec;
                             k = box_repulsion, x, y, halign, valign
-                        ) .* (intersects.((current_origin,), (width_vec[j],), origin_vec, width_vec))
+                        ) .* ifelse.(intersects.((current_origin,), (width_vec[j],), origin_vec, width_vec), 1, 0.000)
                     )
             end
 
