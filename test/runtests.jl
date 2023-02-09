@@ -5,7 +5,7 @@ using Makie.GeometryBasics
 using GeometryBasics: origin, widths
 using Test
 using RDatasets
-using BenchmarkTools, TimerOutputs
+using MakieRepel.BenchmarkTools, MakieRepel.TimerOutputs
 
 # TODO: test basic functionality
 # eg distance, intersection, spring force
