@@ -87,8 +87,32 @@ end
 
 # TODOS:
 # - still allocates a lot, find a way to make the origin vector into a mutable structarray to cut down on allocations
-# - change to how ggrepel does it - only intersecting elements repel.  this should cut allocs down by a lot.
-function repel_from_points(points::AbstractVector{<: Makie.VecTypes{2}}, boxes::AbstractVector{<: Rect2}, axisbbox::Rect2, niters = 10000; padding = 4, x = true, y = true, halign = 0.5, valign = 0.5, data_radius = 5, selfpoint_radius = 3, attraction = 1.75e-3, box_repulsion = 3e-3, point_repulsion = 3e-3)
+"""
+    repel_from_points(
+        points::AbstractVector{<: Makie.VecTypes{2}}, boxes::AbstractVector{<: Rect2}, axisbbox::Rect2, niters = 10000; 
+        padding = 4, x = true, y = true, halign = 0.5, valign = 0.5, data_radius = 5, selfpoint_radius = 3, 
+        attraction = 1.9e-2, box_repulsion = 1.1e-2, point_repulsion = 0.99e-2
+    )::Vector{<: VecTypes{2, Float64}} # representing origins of bboxes
+
+## Arguments
+- `points`: The base points of data, in pixel space.
+- `boxes`: The bounding boxes of the texts, in pixel space.
+- `axisbbox`: The bounding box of the axis, usually `Rect2f(Point2f(0), widths(scene.px_area[]))`. Used to ensure that text stays within the axis.
+- `niters`: The number of iterations for which to optimize.  We don't test for convergence, so the loop will run for this many iterations every time.
+
+## Keyword arguments
+- `padding`: The padding around each box (usually in pixels).
+- `x`: Whether to repel in the x direction.
+- `y`: Whether to repel in the y direction.
+- `halign`: The horizontal alignment of the centroid of a box.
+- `valign`: The vertical alignment of the centroid of a box.
+- `data_radius`: The radius around each data point to be kept clear.
+- `selfpoint_radius`: The radius around the data point associated with the annotation to be kept clear.  Usually less than `data_radius`.
+- `attraction`: The attractive force between a box and its associated point.
+- `box_repulsion`: The repulsive force between boxes.
+- `point_repulsion`: The repulsive force between boxes and data points.
+"""
+function repel_from_points(points::AbstractVector{<: Makie.VecTypes{2}}, boxes::AbstractVector{<: Rect2}, axisbbox::Rect2, niters = 10000; padding = 4, x = true, y = true, halign = 0.5, valign = 0.5, data_radius = 5, selfpoint_radius = 3, attraction = 1.9e-2, box_repulsion = 1.1e-2, point_repulsion = 0.99e-2)
     @assert length(points) == length(boxes)
     @timeit to "accumulating origin and width" begin
     origin_vec = #=StructArray(=#origin.(boxes) .- (Vec2f(padding),)#)
@@ -102,43 +126,43 @@ function repel_from_points(points::AbstractVector{<: Makie.VecTypes{2}}, boxes::
         # attract origin to the base point
         # distances_to_basepoints = dist.(origin_vec, points)
         @timeit to "Attraction to origin points" begin
-            origin_vec .-= spring_repel.(origin_vec, width_vec, points; k = attraction, x, y, halign, valign) .* ifelse.(intersects.(origin_vec, width_vec, points, selfpoint_radius), -1f5, 1f0)#ifelse.(distances_to_basepoints .< 50, 1, distances_to_basepoints)
+            origin_vec .-= spring_repel.(origin_vec, width_vec, points; k = attraction, x, y, halign, valign) .* ifelse.(intersects.(origin_vec, width_vec, points, selfpoint_radius), -1f0, 1f0)
         end
 
         # loop through all boxes to apply this
 
         for j in 1:length(boxes)
-            jitter = rand(Point2f) .* 0.00001f0
+            jitter = rand(Point2f) .* 0.001f0
 
             # push each box away from the wall
 
-            current_origin = origin_vec[j]
-            current_width = width_vec[j]
+            current_origin = origin_vec[j] .+ jitter
+            current_width = width_vec[j] .+ jitter
 
             @timeit to "Repulsion between boxes" begin
                 origin_vec[j] += sum(
                         spring_repel.(
-                            (current_origin .+ jitter,), (width_vec[j] .+ jitter,),
+                            (current_origin,), (current_width,),
                             origin_vec, width_vec;
                             k = box_repulsion, x, y, halign, valign
-                        ) .* ifelse.(intersects.((current_origin,), (width_vec[j],), origin_vec, width_vec), 1, 0.000)
+                        ) .* #=ifelse.(=#intersects.((current_origin,), (current_width,), origin_vec, width_vec)#, 1, 0.000)
                     )
             end
 
             @timeit to "Repulsion between boxes and points" begin
                 origin_vec[j] += sum(
                         spring_repel.(
-                            (current_origin .+ jitter,), (width_vec[j] .+ jitter,),
+                            (current_origin,), (current_width,),
                             points;
                             k = point_repulsion, x, y, halign, valign
-                        ) .* intersects.((current_origin,), (width_vec[j],), points, data_radius)
+                        ) .* intersects.((current_origin,), (current_width,), points, data_radius)
                     )
             end
 
             @timeit to "Repulsion of boxes from walls" begin
-                left_bottom_less = max.(axisbbox.origin .- origin_vec[j], 0f0)
-                right_top_more = min.((axisbbox.origin .+ axisbbox.widths) .- (origin_vec[j] .+ current_width), 0f0)
-                origin_vec[j] += left_bottom_less .+ right_top_more .+ rand(Point2f) .* 1f-2
+                left_bottom_less = max.(axisbbox.origin .- current_origin, 0f0)
+                right_top_more = min.((axisbbox.origin .+ axisbbox.widths) .- (current_origin .+ current_width), 0f0)
+                origin_vec[j] += left_bottom_less .+ right_top_more #.+ rand(Point2f) .* 1f-2
             end
 
 
