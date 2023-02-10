@@ -86,15 +86,30 @@ function Makie.plot!(plot::RepulsiveLabels)
         ),
     ) # this is all in pixel space
 
-    new_positions = lift(text_bbox_obs, plot.niters, plot.padding, plot.x, plot.y, plot.halign, plot.valign, plot.data_radius, plot.selfpoint_radius, plot.attraction, plot.box_repulsion, plot.point_repulsion) do text_boxes, niters, padding, x, y, halign, valign, data_radius, selfpoint_radius, attraction, box_repulsion, point_repulsion
-        return Makie.project.((Makie.camera(scene),), :pixel, :data, repel_from_points(pixelspace_positions_obs[], text_boxes, Rect2f(Point2f(0), scene.px_area[].widths), niters; padding, x, y, halign, valign, data_radius, selfpoint_radius, attraction, box_repulsion, point_repulsion))
+    new_positions_px = Observable{Vector{Vec2f}}()
+    new_positions_data = Observable{Vector{Point2f}}()
+    lift(text_bbox_obs, plot.niters, plot.padding, plot.x, plot.y, plot.halign, plot.valign, plot.data_radius, plot.selfpoint_radius, plot.attraction, plot.box_repulsion, plot.point_repulsion) do text_boxes, niters, padding, x, y, halign, valign, data_radius, selfpoint_radius, attraction, box_repulsion, point_repulsion
+        new_positions_px[] = repel_from_points(pixelspace_positions_obs[], text_boxes, Rect2f(Point2f(0), scene.px_area[].widths), niters; padding, x, y, halign, valign, data_radius, selfpoint_radius, attraction, box_repulsion, point_repulsion)
+        new_positions_data[] = Point2f.(Makie.project.((Makie.camera(scene),), :pixel, :data, new_positions_px[]))
     end
 
-    on(new_positions) do np
+    on(new_positions_data) do np
         textplot.position[] = np
     end
 
-    linesegs = linesegments!(plot, @lift(collect(Iterators.flatten(zip(Point2f.($(new_positions)), $(plot[2]))))); xautolimits = false, yautolimits = false,)
+    # note: we only lift on new_positions_px here, since it is directly activated by text_bbox_obs anyway.
+
+    lineseg_obs = @lift(
+        collect(
+            Iterators.flatten(
+                zip(
+                    Point2f.(Makie.project.((Makie.camera(scene),), :pixel, :data, closest_anchor_point.(text_bbox_obs[], Point2f.($(new_positions_px))))), 
+                    $(plot[2])
+                )
+            )
+        )
+    )
+    linesegs = linesegments!(plot, lineseg_obs; xautolimits = false, yautolimits = false,)
 
     # trigger the pipeline once
     notify(scene.px_area)
@@ -102,9 +117,6 @@ function Makie.plot!(plot::RepulsiveLabels)
     return plot
 end
 
-function _nearest_point(neworigins, widths, points)
-
-end
 
 # improvements to Makie
 Makie.inherit(scene, attr::NTuple{1, <: Symbol}, default_value) where N = Makie.inherit(scene, attr[begin], default_value)

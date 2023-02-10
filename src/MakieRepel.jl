@@ -9,6 +9,7 @@ using BenchmarkTools, TimerOutputs
 const to = TimerOutput()
 TimerOutputs.reset_timer!(to)
 
+include("utils.jl")
 include("repel.jl")
 include("recipe.jl")
 
