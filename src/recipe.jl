@@ -42,16 +42,16 @@ $(Makie.ATTRIBUTES)
         linestyle = inherit(scene, :linestyle, :solid),
         linevisible = true,
         niters = 10_000,
-        padding = 10,
+        padding = 3,
         x = true,
         y = true,
         halign = 0.5,
         valign = 0.5,
         data_radius = markersize * 1,
         selfpoint_radius = markersize * 1.5,
-        attraction = 7f-2,#1.3e-2,
-        box_repulsion = 7.2f-2,
-        point_repulsion = 5.1f-2,
+        attraction = 4f-2,#1.3e-2,
+        box_repulsion = 3.2f-2,
+        point_repulsion = 3.1f-2,
     )
 end
 
@@ -103,7 +103,7 @@ function Makie.plot!(plot::RepulsiveLabels)
         collect(
             Iterators.flatten(
                 zip(
-                    Point2f.(Makie.project.((Makie.camera(scene),), :pixel, :data, closest_anchor_point.(text_bbox_obs[], Point2f.($(new_positions_px))))), 
+                    Point2f.(Makie.project.((Makie.camera(scene),), :pixel, :data, closest_anchor_point.(Rect2f.($(new_positions_px), widths.(text_bbox_obs[])), Point2f.($(pixelspace_positions_obs))))), 
                     $(plot[2])
                 )
             )

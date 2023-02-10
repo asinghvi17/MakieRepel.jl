@@ -132,7 +132,7 @@ function repel_from_points(points::AbstractVector{<: Makie.VecTypes{2}}, boxes::
         # loop through all boxes to apply this
 
         for j in 1:length(boxes)
-            jitter = rand(Point2f) .* 0.001f0
+            jitter = rand(Point2f) .* 0.00001f0
 
             # push each box away from the wall
 
